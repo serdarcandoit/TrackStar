@@ -7,6 +7,7 @@ export interface Transaction {
     date: string; // ISO String
     note?: string;
     type: TransactionType;
+    recurringRuleId?: string;
 }
 
 export interface MonthData {
@@ -22,4 +23,14 @@ export interface CategoryTotal {
     total: number;
     color: string;
     percentage: number;
+}
+
+export interface RecurringTransaction {
+    id: string;
+    amount: number;
+    category: string;
+    note?: string;
+    type: TransactionType;
+    dayOfMonth: number;
+    lastGeneratedMonth: string; // "YYYY-MM"
 }

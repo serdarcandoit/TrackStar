@@ -5,38 +5,46 @@
 
 export const Colors = {
     // Primary Actions
-    primary: '#007AFF', // iOS Blue
-    primaryDark: '#005ecb',
+    primary: '#2D6CDF', // Deep Royal Blue
+    primaryDark: '#1A4BA0',
 
     // Backgrounds
-    background: '#F2F2F7', // iOS System Grouped Background
+    background: '#F9FAFB', // Softer Off-white (Slate-50)
     surface: '#FFFFFF',
+    cardBackground: '#FFFFFF',
 
     // Text
-    text: '#000000',
-    textSecondary: '#8E8E93',
-    textTertiary: '#C7C7CC',
+    text: '#1F2937', // Gray-900 (Softer black)
+    textSecondary: '#6B7280', // Gray-500
+    textTertiary: '#9CA3AF', // Gray-400
 
     // Semantic
-    success: '#34C759', // iOS Green
-    danger: '#FF3B30',  // iOS Red
-    warning: '#FFCC00', // iOS Yellow
-    info: '#5856D6',    // iOS Indigo
+    success: '#10B981', // Emerald
+    danger: '#EF4444',  // Red-500
+    warning: '#F59E0B', // Amber
+    info: '#3B82F6',    // Blue-500
+
+    // New Design Palette
+    cardDark: '#1F2937',      // Dark Card Background
+    incomeCard: '#E0E7FF',    // Pastel Purple/Indigo
+    expenseCard: '#FEF3C7',   // Pastel Yellow/Amber
+    iconBgPurple: '#4F46E5',  // Vibrant Purple for icon
+    iconBgOrange: '#F59E0B',  // Vibrant Orange for icon
 
     // UI Elements
-    separator: '#C6C6C8',
-    border: '#E5E5EA',
+    separator: '#E5E7EB', // Gray-200
+    border: '#E5E7EB',
     overlay: 'rgba(0, 0, 0, 0.4)',
 
-    // Chart Colors
+    // Modern Chart Colors (Vibrant but harmonious)
     charts: [
-        '#007AFF', // Blue
-        '#34C759', // Green
-        '#FF9500', // Orange
-        '#FF3B30', // Red
-        '#5856D6', // Indigo
-        '#AF52DE', // Purple
-        '#FF2D55', // Pink
-        '#5AC8FA', // Teal
+        '#3B82F6', // Blue
+        '#10B981', // Emerald
+        '#8B5CF6', // Violet
+        '#F59E0B', // Amber
+        '#EF4444', // Red
+        '#EC4899', // Pink
+        '#06B6D4', // Cyan
+        '#6366F1', // Indigo
     ]
 };

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Platform, KeyboardAvoidingView, Alert, TouchableOpacity } from 'react-native';
+import React, { useState, useMemo, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, Platform, KeyboardAvoidingView, Alert, TouchableOpacity, Switch } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { format } from 'date-fns';
@@ -10,14 +10,13 @@ import { Button } from '../components/ui/Button';
 import { Colors } from '../constants/Colors';
 import { Layout } from '../constants/Layout';
 import { useBudget } from '../context/BudgetContext';
-import { TransactionType } from '../types';
 
 const CATEGORIES = ["Food", "Transport", "Shopping", "Entertainment", "Bills", "Health", "Salary", "Rent", "Groceries", "Dining Out", "Other"];
 
 export default function AddModal() {
     const router = useRouter();
     const params = useLocalSearchParams();
-    const { addTransaction } = useBudget();
+    const { addTransaction, deleteRecurringRule, recurringRules } = useBudget();
 
     const [amount, setAmount] = useState(params.amount ? String(params.amount) : '');
     const [category, setCategory] = useState(params.category ? String(params.category) : '');
@@ -29,6 +28,22 @@ export default function AddModal() {
         : format(new Date(), 'yyyy-MM-dd');
 
     const [dateStr, setDateStr] = useState(initialDateStr);
+
+    // Check if editing an existing recurring transaction AND the rule is still active
+    const initialIsRecurring = useMemo(() => {
+        if (!params.recurringRuleId) return false;
+        return recurringRules.some(r => r.id === params.recurringRuleId);
+    }, [params.recurringRuleId, recurringRules]);
+
+    const [isRecurring, setIsRecurring] = useState(initialIsRecurring);
+
+    // Update isRecurring if initial changes (e.g. rules loaded)
+    useEffect(() => {
+        if (params.recurringRuleId) {
+            const isActive = recurringRules.some(r => r.id === params.recurringRuleId);
+            setIsRecurring(isActive);
+        }
+    }, [recurringRules, params.recurringRuleId]);
 
     const [loading, setLoading] = useState(false);
     const [errors, setErrors] = useState<{ amount?: string; category?: string }>({});
@@ -55,6 +70,23 @@ export default function AddModal() {
 
         setLoading(true);
         try {
+            // Handle Recurring Toggle Logic
+            let shouldCreateRule = isRecurring;
+
+            if (isEditing) {
+                // If it WAS recurring but now turned OFF -> Delete the rule
+                if (params.recurringRuleId && !isRecurring) {
+                    const currentTransactionDate = new Date(dateStr).toISOString();
+                    await deleteRecurringRule(String(params.recurringRuleId), currentTransactionDate);
+                    shouldCreateRule = false;
+                }
+                // If it WAS recurring and still IS -> Don't create duplicate
+                if (params.recurringRuleId && isRecurring) {
+                    shouldCreateRule = false;
+                }
+                // If it WAS NOT recurring and now IS -> Create rule (shouldCreateRule = true)
+            }
+
             await addTransaction({
                 id: isEditing ? String(params.id) : Date.now().toString(),
                 amount: parseFloat(amount),
@@ -62,7 +94,8 @@ export default function AddModal() {
                 date: new Date(dateStr).toISOString(),
                 note: note.trim(),
                 type: 'expense'
-            });
+            }, shouldCreateRule); // Pass the computed flag
+
             router.back();
         } catch (e) {
             Alert.alert('Error', 'Failed to save transaction');
@@ -81,7 +114,7 @@ export default function AddModal() {
                 <StatusBar style={Platform.OS === 'ios' ? 'light' : 'dark'} />
                 <ScrollView contentContainerStyle={styles.container}>
 
-                    {/* Category Chips - Moved to top since toggle is gone */}
+                    {/* Category Chips */}
                     <ScrollView
                         horizontal
                         showsHorizontalScrollIndicator={false}
@@ -140,6 +173,16 @@ export default function AddModal() {
                         style={{ height: 80, textAlignVertical: 'top' }}
                     />
 
+                    {/* Recurring Option */}
+                    <View style={styles.switchContainer}>
+                        <Text style={styles.switchLabel}>Repeats Monthly</Text>
+                        <Switch
+                            value={isRecurring}
+                            onValueChange={setIsRecurring}
+                            trackColor={{ false: Colors.border, true: Colors.primary }}
+                        />
+                    </View>
+
                     <View style={styles.spacer} />
 
                     <Button
@@ -162,6 +205,18 @@ const styles = StyleSheet.create({
         fontSize: 24,
         fontWeight: '700',
         color: Colors.primary,
+    },
+    switchContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginTop: Layout.spacing.md,
+        paddingHorizontal: 4,
+    },
+    switchLabel: {
+        fontSize: 16,
+        color: Colors.text,
+        fontWeight: '500',
     },
     spacer: {
         height: Layout.spacing.xl,

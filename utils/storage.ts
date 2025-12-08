@@ -1,7 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Transaction } from '../types';
+import { Transaction, MonthData, RecurringTransaction } from '../types';
 
 const STORAGE_PREFIX = 'budget_app_';
+const RECURRING_KEY = 'budget_app_recurring_rules';
 
 // Helper to get key for a specific month
 const getMonthKey = (monthKey: string) => `${STORAGE_PREFIX}${monthKey}`;
@@ -93,6 +94,83 @@ export const Storage = {
     },
 
     /**
+     * Recurrring Rules Logic
+     */
+    getRecurringRules: async (): Promise<RecurringTransaction[]> => {
+        try {
+            const jsonValue = await AsyncStorage.getItem(RECURRING_KEY);
+            return jsonValue != null ? JSON.parse(jsonValue) : [];
+        } catch (e) {
+            return [];
+        }
+    },
+
+    saveRecurringRule: async (rule: RecurringTransaction): Promise<void> => {
+        try {
+            const rules = await Storage.getRecurringRules();
+            const newRules = [...rules, rule];
+            await AsyncStorage.setItem(RECURRING_KEY, JSON.stringify(newRules));
+        } catch (e) {
+            console.error('Failed to save recurring rule', e);
+        }
+    },
+
+    deleteRecurringRule: async (ruleId: string): Promise<void> => {
+        try {
+            const rules = await Storage.getRecurringRules();
+            const newRules = rules.filter(r => r.id !== ruleId);
+            await AsyncStorage.setItem(RECURRING_KEY, JSON.stringify(newRules));
+        } catch (e) {
+            console.error('Failed to delete recurring rule', e);
+        }
+    },
+
+    /**
+     * Process recurring rules for a given month.
+     * Checks if any rule hasn't been generated for this month yet.
+     */
+    processRecurringTransactions: async (targetMonth: string): Promise<void> => {
+        try {
+            const rules = await Storage.getRecurringRules();
+            let rulesUpdated = false;
+
+            for (const rule of rules) {
+                // If rule's lastGeneratedMonth is before targetMonth, we generate
+                if (rule.lastGeneratedMonth < targetMonth) {
+
+                    // Create Date for the target month
+                    const day = rule.dayOfMonth.toString().padStart(2, '0');
+                    const newDate = `${targetMonth}-${day}`;
+
+                    const newTransaction: Transaction = {
+                        id: Date.now().toString() + Math.random().toString(),
+                        amount: rule.amount,
+                        category: rule.category,
+                        note: rule.note,
+                        type: rule.type,
+                        date: new Date(newDate).toISOString(), // Ensure full ISO string
+                        recurringRuleId: rule.id
+                    };
+
+                    // Save to transaction storage
+                    await Storage.saveTransaction(targetMonth, newTransaction);
+
+                    // Update rule
+                    rule.lastGeneratedMonth = targetMonth;
+                    rulesUpdated = true;
+                }
+            }
+
+            if (rulesUpdated) {
+                await AsyncStorage.setItem(RECURRING_KEY, JSON.stringify(rules));
+            }
+
+        } catch (e) {
+            console.error('Failed to process recurring transactions', e);
+        }
+    },
+
+    /**
      * Clear all data for a month
      */
     clearMonth: async (monthKey: string): Promise<void> => {
@@ -101,6 +179,87 @@ export const Storage = {
             await AsyncStorage.removeItem(key);
         } catch (e) {
             console.error('Failed to clear month', e);
+        }
+    },
+
+    /**
+     * Clear ALL data (Reset App)
+     */
+    clearStorage: async (): Promise<void> => {
+        try {
+            await AsyncStorage.clear();
+        } catch (e) {
+            console.error('Failed to clear storage', e);
+        }
+    },
+
+    /**
+     * Clear ONLY transactions (keep budget and recurring rules)
+     */
+    clearTransactions: async (): Promise<void> => {
+        try {
+            const keys = await AsyncStorage.getAllKeys();
+            // Filter keys that start with STORAGE_PREFIX but are NOT the recurring key
+            const transactionKeys = keys.filter(key =>
+                key.startsWith(STORAGE_PREFIX) &&
+                key !== RECURRING_KEY &&
+                !key.startsWith('budget_limit_') // Also prevent deleting budget limits, though they have different prefix
+            );
+
+            if (transactionKeys.length > 0) {
+                await AsyncStorage.multiRemove(transactionKeys);
+            }
+        } catch (e) {
+            console.error('Failed to clear transactions', e);
+            throw new Error('Failed to clear transactions');
+        }
+    },
+
+    /**
+     * Delete ALL future transactions for a given rule (including the month of fromDate if date > fromDate)
+     * @param ruleId ID of the recurring rule
+     * @param fromDate ISO string (e.g. "2024-05-15T...") - Transactions AFTER this date will be deleted
+     */
+    deleteFutureTransactionsForRule: async (ruleId: string, fromDate: string): Promise<void> => {
+        try {
+            const keys = await AsyncStorage.getAllKeys();
+            // Get all month keys: budget_app_YYYY-MM
+            const monthKeys = keys.filter(k => k.startsWith(STORAGE_PREFIX) && k !== RECURRING_KEY && !k.startsWith('budget_limit_'));
+
+            const fromMonth = fromDate.slice(0, 7); // YYYY-MM
+            const fromTime = new Date(fromDate).getTime();
+
+            for (const key of monthKeys) {
+                // Key is budget_app_YYYY-MM, so slice(11) gets YYYY-MM
+                const month = key.substring(11);
+
+                // Only look at months >= current month
+                if (month >= fromMonth) {
+                    const jsonValue = await AsyncStorage.getItem(key);
+                    if (!jsonValue) continue;
+
+                    const transactions: Transaction[] = JSON.parse(jsonValue);
+                    const originalLength = transactions.length;
+
+                    // Filter out transactions that match the rule AND are strictly after the fromDate
+                    const newTransactions = transactions.filter(t => {
+                        if (t.recurringRuleId !== ruleId) return true;
+
+                        // It is the rule, check date
+                        // IF it's in a future month (month > fromMonth), delete it
+                        if (month > fromMonth) return false;
+
+                        // IF it's in the SAME month, delete only if date is AFTER fromDate
+                        return new Date(t.date).getTime() <= fromTime;
+                    });
+
+                    if (newTransactions.length !== originalLength) {
+                        await AsyncStorage.setItem(key, JSON.stringify(newTransactions));
+                    }
+                }
+            }
+        } catch (e) {
+            console.error('Failed to delete future transactions', e);
         }
     }
 };

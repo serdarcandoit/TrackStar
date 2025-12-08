@@ -7,11 +7,12 @@ import { Transaction } from '../../types';
 import { Colors } from '../../constants/Colors';
 import { Layout } from '../../constants/Layout';
 import { format, parseISO, isToday, isYesterday } from 'date-fns';
-import { Trash2 } from 'lucide-react-native';
+import { Trash2, RotateCcw } from 'lucide-react-native';
 import { Card } from '../../components/ui/Card';
+import { Alert } from 'react-native';
 
 export default function Transactions() {
-    const { transactions, deleteTransaction } = useBudget();
+    const { transactions, deleteTransaction, clearTransactions } = useBudget();
 
     const sections = useMemo(() => {
         // 1. Sort transactions by date desc
@@ -52,9 +53,30 @@ export default function Transactions() {
                 category: item.category,
                 date: item.date,
                 note: item.note || '',
-                type: item.type
+                type: item.type,
+                recurringRuleId: item.recurringRuleId
             }
         });
+    };
+
+    const handleReset = () => {
+        Alert.alert(
+            'Reset Transactions',
+            'Are you sure you want to delete ALL transactions? This cannot be undone. Recurring rules and budget will be kept.',
+            [
+                {
+                    text: 'Cancel',
+                    style: 'cancel'
+                },
+                {
+                    text: 'Delete All',
+                    style: 'destructive',
+                    onPress: async () => {
+                        await clearTransactions();
+                    }
+                }
+            ]
+        );
     };
 
     const renderItem = ({ item }: { item: Transaction }) => (
@@ -87,6 +109,12 @@ export default function Transactions() {
 
     return (
         <ScreenWrapper>
+            <View style={styles.header}>
+                <Text style={styles.headerTitle}>Transactions</Text>
+                <TouchableOpacity onPress={handleReset} style={styles.resetButton}>
+                    <RotateCcw size={20} color={Colors.danger} />
+                </TouchableOpacity>
+            </View>
             <SectionList
                 sections={sections}
                 keyExtractor={item => item.id}
@@ -112,6 +140,22 @@ const styles = StyleSheet.create({
     listContent: {
         padding: Layout.spacing.md,
         paddingBottom: 100,
+    },
+    header: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: Layout.spacing.md,
+        paddingVertical: Layout.spacing.md,
+        backgroundColor: Colors.background,
+    },
+    headerTitle: {
+        fontSize: 24,
+        fontWeight: '700',
+        color: Colors.text,
+    },
+    resetButton: {
+        padding: 8,
     },
     sectionHeader: {
         paddingVertical: Layout.spacing.sm,
