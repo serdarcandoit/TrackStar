@@ -1,6 +1,6 @@
 import { Tabs } from 'expo-router';
 import { Colors } from '../../constants/Colors';
-import { Home, PieChart, List } from 'lucide-react-native';
+import { Home, PieChart, List, Bitcoin } from 'lucide-react-native';
 import { Platform, View, StyleSheet } from 'react-native';
 
 export default function TabLayout() {
@@ -52,6 +52,18 @@ export default function TabLayout() {
                             <PieChart size={size} color={color} />
                         </View>
                     ),
+                }}
+            />
+            <Tabs.Screen
+                name="crypto"
+                options={{
+                    title: 'Crypto',
+                    tabBarIcon: ({ color, size }) => (
+                        <View style={styles.iconContainer}>
+                            <Bitcoin size={size} color={color} />
+                        </View>
+                    ),
+                    headerShown: false,
                 }}
             />
         </Tabs>

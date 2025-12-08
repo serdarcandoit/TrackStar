@@ -1,8 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Transaction, MonthData, RecurringTransaction } from '../types';
+import { Transaction, MonthData, RecurringTransaction, CryptoAsset } from '../types';
 
 const STORAGE_PREFIX = 'budget_app_';
 const RECURRING_KEY = 'budget_app_recurring_rules';
+const CRYPTO_KEY = 'budget_app_crypto_portfolio';
 
 // Helper to get key for a specific month
 const getMonthKey = (monthKey: string) => `${STORAGE_PREFIX}${monthKey}`;
@@ -260,6 +261,54 @@ export const Storage = {
             }
         } catch (e) {
             console.error('Failed to delete future transactions', e);
+        }
+    },
+
+    /**
+     * Crypto Portfolio Logic
+     */
+    getCryptoPortfolio: async (): Promise<CryptoAsset[]> => {
+        try {
+            const jsonValue = await AsyncStorage.getItem(CRYPTO_KEY);
+            return jsonValue != null ? JSON.parse(jsonValue) : [];
+        } catch (e) {
+            return [];
+        }
+    },
+
+    saveCryptoPortfolio: async (portfolio: CryptoAsset[]): Promise<void> => {
+        try {
+            await AsyncStorage.setItem(CRYPTO_KEY, JSON.stringify(portfolio));
+        } catch (e) {
+            console.error('Failed to save crypto portfolio', e);
+        }
+    },
+
+    saveCryptoAsset: async (asset: CryptoAsset): Promise<void> => {
+        try {
+            const portfolio = await Storage.getCryptoPortfolio();
+            const index = portfolio.findIndex(p => p.id === asset.id);
+            let newPortfolio;
+
+            if (index >= 0) {
+                newPortfolio = [...portfolio];
+                newPortfolio[index] = asset;
+            } else {
+                newPortfolio = [...portfolio, asset];
+            }
+            await Storage.saveCryptoPortfolio(newPortfolio);
+        } catch (e) {
+            console.error('Failed to save crypto asset', e);
+        }
+    },
+
+    deleteCryptoAsset: async (assetId: string): Promise<void> => {
+        try {
+            const portfolio = await Storage.getCryptoPortfolio();
+            const newPortfolio = portfolio.filter(p => p.id !== assetId);
+            await Storage.saveCryptoPortfolio(newPortfolio);
+        } catch (e) {
+            console.error('Failed to delete crypto asset', e);
         }
     }
 };

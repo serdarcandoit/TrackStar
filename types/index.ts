@@ -34,3 +34,11 @@ export interface RecurringTransaction {
     dayOfMonth: number;
     lastGeneratedMonth: string; // "YYYY-MM"
 }
+
+export interface CryptoAsset {
+    id: string;
+    symbol: string; // e.g. 'bitcoin'
+    name: string; // e.g. 'Bitcoin'
+    amount: number;
+    averageBuyPrice: number;
+}

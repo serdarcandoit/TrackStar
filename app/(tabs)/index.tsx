@@ -28,8 +28,14 @@ export default function Dashboard() {
                 {/* Header */}
                 <View style={styles.header}>
                     <View>
-                        <Text style={styles.greeting}>Good Morning</Text>
-                        <Text style={styles.userName}>My Budget</Text>
+                        <Text style={[styles.userName, { fontSize: 24, marginBottom: 4 }]}>
+                            {(() => {
+                                const hour = new Date().getHours();
+                                if (hour < 12) return 'Good Morning ☀️';
+                                if (hour < 18) return 'Good Afternoon 🌤️';
+                                return 'Good Evening 🌙';
+                            })()}
+                        </Text>
                     </View>
                 </View>
 
