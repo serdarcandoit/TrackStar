@@ -1,26 +1,30 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Platform, KeyboardAvoidingView, Alert, TouchableOpacity, Switch } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Platform, KeyboardAvoidingView, Alert, TouchableOpacity, Switch, Modal, TextInput } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { format } from 'date-fns';
+import { Plus, X } from 'lucide-react-native';
 
 import { ScreenWrapper } from '../components/ui/ScreenWrapper';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
 import { Colors } from '../constants/Colors';
 import { Layout } from '../constants/Layout';
+import { DEFAULT_CATEGORIES } from '../constants/CategoryIcons';
 import { useBudget } from '../context/BudgetContext';
-
-const CATEGORIES = ["Food", "Transport", "Shopping", "Entertainment", "Bills", "Health", "Salary", "Rent", "Groceries", "Dining Out", "Other"];
 
 export default function AddModal() {
     const router = useRouter();
     const params = useLocalSearchParams();
-    const { addTransaction, deleteRecurringRule, recurringRules } = useBudget();
+    const { addTransaction, updateTransaction, deleteRecurringRule, recurringRules, categories, addCustomCategory, deleteCustomCategory } = useBudget();
 
     const [amount, setAmount] = useState(params.amount ? String(params.amount) : '');
     const [category, setCategory] = useState(params.category ? String(params.category) : '');
     const [note, setNote] = useState(params.note ? String(params.note) : '');
+
+    // Custom Category Modal State
+    const [isAddCatModalVisible, setIsAddCatModalVisible] = useState(false);
+    const [newCatName, setNewCatName] = useState('');
 
     // Parse date correctly: if date param exists, use it, else default to today
     const initialDateStr = params.date
@@ -87,14 +91,22 @@ export default function AddModal() {
                 // If it WAS NOT recurring and now IS -> Create rule (shouldCreateRule = true)
             }
 
-            await addTransaction({
+            const transactionData = {
                 id: isEditing ? String(params.id) : Date.now().toString(),
                 amount: parseFloat(amount),
                 category: category.trim(),
-                date: new Date(dateStr).toISOString(),
+                date: new Date(dateStr).toISOString(), // Updated date
                 note: note.trim(),
-                type: 'expense'
-            }, shouldCreateRule); // Pass the computed flag
+                type: 'expense' as const
+            };
+
+            if (isEditing) {
+                // Pass original date (params.date) to handle month moving
+                const oldDate = params.date ? String(params.date) : undefined;
+                await updateTransaction(transactionData, oldDate, shouldCreateRule);
+            } else {
+                await addTransaction(transactionData, shouldCreateRule);
+            }
 
             router.back();
         } catch (e) {
@@ -102,6 +114,39 @@ export default function AddModal() {
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleAddCategory = () => {
+        if (!newCatName.trim()) return;
+
+        addCustomCategory(newCatName.trim());
+        setCategory(newCatName.trim());
+        setNewCatName('');
+        setIsAddCatModalVisible(false);
+    };
+
+    const handleDeleteCategoryTrigger = (cat: string) => {
+        // Only allow deleting custom categories
+        if (DEFAULT_CATEGORIES.includes(cat)) return;
+
+        Alert.alert(
+            "Delete Category",
+            `Are you sure you want to delete "${cat}"?`,
+            [
+                { text: "Cancel", style: "cancel" },
+                {
+                    text: "Delete",
+                    style: "destructive",
+                    onPress: async () => {
+                        // If selected category is the one being deleted, clear selection
+                        if (category === cat) {
+                            setCategory('');
+                        }
+                        await deleteCustomCategory(cat);
+                    }
+                }
+            ]
+        );
     };
 
     return (
@@ -115,28 +160,47 @@ export default function AddModal() {
                 <ScrollView contentContainerStyle={styles.container}>
 
                     {/* Category Chips */}
+                    <Text style={styles.label}>Category</Text>
                     <ScrollView
                         horizontal
                         showsHorizontalScrollIndicator={false}
                         style={styles.chipsScroll}
                         contentContainerStyle={styles.chipsContainer}
                     >
-                        {CATEGORIES.map((cat) => (
-                            <TouchableOpacity
-                                key={cat}
-                                onPress={() => setCategory(cat)}
-                                style={[
-                                    styles.chip,
-                                    category === cat && styles.chipActive
-                                ]}
-                            >
-                                <Text style={[
-                                    styles.chipText,
-                                    category === cat && styles.chipTextActive
-                                ]}>{cat}</Text>
-                            </TouchableOpacity>
-                        ))}
+                        {categories.map((cat) => {
+                            const isDefault = DEFAULT_CATEGORIES.includes(cat);
+                            return (
+                                <TouchableOpacity
+                                    key={cat}
+                                    onPress={() => setCategory(cat)}
+                                    // Long press to delete custom categories
+                                    onLongPress={() => !isDefault && handleDeleteCategoryTrigger(cat)}
+                                    delayLongPress={500}
+                                    style={[
+                                        styles.chip,
+                                        category === cat && styles.chipActive
+                                    ]}
+                                >
+                                    <Text style={[
+                                        styles.chipText,
+                                        category === cat && styles.chipTextActive
+                                    ]}>{cat}</Text>
+                                </TouchableOpacity>
+                            );
+                        })}
+
+
+                        {/* ADD CATEGORY BUTTON */}
+                        <TouchableOpacity
+                            onPress={() => setIsAddCatModalVisible(true)}
+                            style={[styles.chip, styles.addCatChip]}
+                        >
+                            <Plus size={16} color={Colors.primary} />
+                            <Text style={[styles.chipText, { color: Colors.primary, marginLeft: 4 }]}>New</Text>
+                        </TouchableOpacity>
+
                     </ScrollView>
+                    {errors.category && <Text style={styles.errorText}>{errors.category}</Text>}
 
                     <Input
                         label="Amount"
@@ -148,13 +212,7 @@ export default function AddModal() {
                         style={styles.amountInput}
                     />
 
-                    <Input
-                        label="Category"
-                        placeholder="e.g. Food, Rent, Salary"
-                        value={category}
-                        onChangeText={setCategory}
-                        error={errors.category}
-                    />
+                    {/* Hidden input for visual spacing consistency, moved logic to chips above */}
 
                     <Input
                         label="Date (YYYY-MM-DD)"
@@ -192,6 +250,37 @@ export default function AddModal() {
                     />
 
                 </ScrollView>
+
+                {/* Custom Category Modal */}
+                <Modal
+                    visible={isAddCatModalVisible}
+                    transparent
+                    animationType="fade"
+                    onRequestClose={() => setIsAddCatModalVisible(false)}
+                >
+                    <View style={styles.modalOverlay}>
+                        <View style={styles.modalContent}>
+                            <View style={styles.modalHeader}>
+                                <Text style={styles.modalTitle}>New Category</Text>
+                                <TouchableOpacity onPress={() => setIsAddCatModalVisible(false)}>
+                                    <X size={24} color={Colors.textSecondary} />
+                                </TouchableOpacity>
+                            </View>
+
+                            <TextInput
+                                style={styles.modalInput}
+                                placeholder="Category Name"
+                                placeholderTextColor={Colors.textTertiary}
+                                value={newCatName}
+                                onChangeText={setNewCatName}
+                                autoFocus
+                            />
+
+                            <Button title="Add Category" onPress={handleAddCategory} />
+                        </View>
+                    </View>
+                </Modal>
+
             </ScreenWrapper>
         </KeyboardAvoidingView>
     );
@@ -200,6 +289,13 @@ export default function AddModal() {
 const styles = StyleSheet.create({
     container: {
         padding: Layout.spacing.lg,
+    },
+    label: {
+        fontSize: 14,
+        fontWeight: '500',
+        color: Colors.textSecondary,
+        marginBottom: 8,
+        marginLeft: 4
     },
     amountInput: {
         fontSize: 24,
@@ -229,6 +325,8 @@ const styles = StyleSheet.create({
         paddingHorizontal: 2,
     },
     chip: {
+        flexDirection: 'row',
+        alignItems: 'center',
         paddingHorizontal: 12,
         paddingVertical: 8,
         borderRadius: 16,
@@ -236,6 +334,11 @@ const styles = StyleSheet.create({
         marginRight: 8,
         borderWidth: 1,
         borderColor: Colors.border,
+    },
+    addCatChip: {
+        borderStyle: 'dashed',
+        borderColor: Colors.primary,
+        backgroundColor: Colors.primary + '10'
     },
     chipActive: {
         backgroundColor: Colors.primary,
@@ -248,5 +351,46 @@ const styles = StyleSheet.create({
     },
     chipTextActive: {
         color: '#FFFFFF',
+    },
+    errorText: {
+        color: Colors.danger,
+        fontSize: 12,
+        marginBottom: 8,
+        marginLeft: 4
+    },
+    // Modal Styles
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20
+    },
+    modalContent: {
+        width: '100%',
+        backgroundColor: '#FFF',
+        borderRadius: 20,
+        padding: 20,
+        ...Layout.shadows.medium
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 20
+    },
+    modalTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: Colors.text
+    },
+    modalInput: {
+        borderWidth: 1,
+        borderColor: Colors.border,
+        borderRadius: 12,
+        padding: 16,
+        fontSize: 16,
+        color: Colors.text,
+        marginBottom: 20
     }
 });

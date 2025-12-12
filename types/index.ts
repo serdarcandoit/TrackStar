@@ -1,5 +1,13 @@
 export type TransactionType = 'expense' | 'income';
 
+export interface Category {
+    id: string; // name is unique id for simplicity in this app context
+    name: string;
+    color: string;
+    icon: string; // name of the lucide icon or 'default'
+    isCustom: boolean;
+}
+
 export interface Transaction {
     id: string;
     amount: number;

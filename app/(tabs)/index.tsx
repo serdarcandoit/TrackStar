@@ -4,20 +4,37 @@ import { ScreenWrapper } from '../../components/ui/ScreenWrapper';
 import { useBudget } from '../../context/BudgetContext';
 import { Colors } from '../../constants/Colors';
 import { Layout } from '../../constants/Layout';
-import { CategoryIcons, CategoryColors } from '../../constants/CategoryIcons';
 import { useRouter } from 'expo-router';
-import { Plus, Pencil } from 'lucide-react-native';
-import { format } from 'date-fns';
+import { Plus, Pencil, ChevronLeft, ChevronRight } from 'lucide-react-native';
+import { format, addMonths, subMonths } from 'date-fns';
 
 export default function Dashboard() {
     const {
         totalSpent,
         remainingBalance,
         monthlyBudget,
-        transactions
+        transactions,
+        getCategoryColor,
+        getCategoryIcon,
+        currentMonth,
+        switchMonth
     } = useBudget();
 
     const router = useRouter();
+
+    const handlePrevMonth = () => {
+        const [y, m] = currentMonth.split('-').map(Number);
+        const date = new Date(y, m - 1, 1);
+        const prev = subMonths(date, 1);
+        switchMonth(format(prev, 'yyyy-MM'));
+    };
+
+    const handleNextMonth = () => {
+        const [y, m] = currentMonth.split('-').map(Number);
+        const date = new Date(y, m - 1, 1);
+        const next = addMonths(date, 1);
+        switchMonth(format(next, 'yyyy-MM'));
+    };
 
     // Limit to latest 5 transactions
     const recentTransactions = transactions.slice(0, 5);
@@ -36,6 +53,19 @@ export default function Dashboard() {
                                 return 'Good Evening 🌙';
                             })()}
                         </Text>
+                    </View>
+
+                    {/* Month Selector */}
+                    <View style={styles.monthSelector}>
+                        <TouchableOpacity onPress={handlePrevMonth} style={styles.monthButton}>
+                            <ChevronLeft size={16} color={Colors.text} />
+                        </TouchableOpacity>
+                        <Text style={styles.monthText}>
+                            {format(new Date(parseInt(currentMonth.split('-')[0]), parseInt(currentMonth.split('-')[1]) - 1), 'MMMM yyyy')}
+                        </Text>
+                        <TouchableOpacity onPress={handleNextMonth} style={styles.monthButton}>
+                            <ChevronRight size={16} color={Colors.text} />
+                        </TouchableOpacity>
                     </View>
                 </View>
 
@@ -86,8 +116,8 @@ export default function Dashboard() {
 
                 <View style={styles.transactionList}>
                     {recentTransactions.map((t) => {
-                        const IconComponent = CategoryIcons[t.category] || CategoryIcons['Other'];
-                        const iconColor = CategoryColors[t.category] || Colors.textSecondary;
+                        const IconComponent = getCategoryIcon(t.category);
+                        const iconColor = getCategoryColor(t.category);
 
                         return (
                             <View key={t.id} style={styles.transactionItem}>
@@ -111,6 +141,7 @@ export default function Dashboard() {
                         <Text style={{ textAlign: 'center', color: Colors.textTertiary, marginTop: 20 }}>No recent transactions</Text>
                     )}
                 </View>
+
 
             </ScrollView>
 
@@ -306,5 +337,27 @@ const styles = StyleSheet.create({
         ...Layout.shadows.medium,
         shadowColor: Colors.iconBgPurple,
         shadowOpacity: 0.4,
+    },
+    monthSelector: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#F3F4F6', // Soft Light Gray (Modern "Fill" style)
+        borderRadius: 24, // Fully rounded pill
+        paddingVertical: 6,
+        paddingHorizontal: 10,
+        // No border, no shadow -> Pure flat UI
+    },
+    monthButton: {
+        padding: 4,
+        borderRadius: 12,
+        backgroundColor: '#E5E7EB', // Slightly darker circle for buttons
+    },
+    monthText: {
+        fontSize: 14,
+        fontWeight: '700', // Bolder text
+        color: Colors.text,
+        minWidth: 120, // Wider
+        textAlign: 'center',
+        fontVariant: ['tabular-nums']
     }
 });

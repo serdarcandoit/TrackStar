@@ -1,4 +1,5 @@
-import { Utensils, Bus, ShoppingBag, Film, FileText, Heart, Wallet, Home, ShoppingCart, Coffee, MoreHorizontal, LucideIcon } from 'lucide-react-native';
+// Basic icons for default categories
+import { Utensils, Bus, ShoppingBag, Film, FileText, Heart, Wallet, Home, ShoppingCart, Coffee, MoreHorizontal, User, Tag, LucideIcon } from 'lucide-react-native';
 import { Colors } from './Colors';
 
 export const CategoryIcons: Record<string, LucideIcon> = {
@@ -8,11 +9,12 @@ export const CategoryIcons: Record<string, LucideIcon> = {
     "Entertainment": Film,
     "Bills": FileText,
     "Health": Heart,
-    "Salary": Wallet,
+    //"Salary": Wallet, // REMOVED
     "Rent": Home,
     "Groceries": ShoppingCart,
-    "Dining Out": Coffee,
-    "Other": MoreHorizontal
+    //"Dining Out": Coffee, // REMOVED
+    "Other": MoreHorizontal,
+    "Default": Tag // Fallback for custom
 };
 
 export const CategoryColors: Record<string, string> = {
@@ -21,10 +23,15 @@ export const CategoryColors: Record<string, string> = {
     "Shopping": Colors.charts[2],
     "Entertainment": Colors.charts[3],
     "Bills": Colors.charts[4],
-    "Health": Colors.charts[0], // Cycle if needed
-    "Salary": Colors.success,
+    "Health": Colors.charts[0],
+    //"Salary": Colors.success, // REMOVED
     "Rent": Colors.charts[1],
     "Groceries": Colors.charts[2],
-    "Dining Out": Colors.charts[3],
-    "Other": Colors.textTertiary
+    //"Dining Out": Colors.charts[3], // REMOVED
+    "Other": Colors.textTertiary,
+    "Default": Colors.textSecondary
 };
+
+export const DEFAULT_CATEGORIES = [
+    "Food", "Transport", "Shopping", "Entertainment", "Bills", "Health", "Rent", "Groceries", "Other"
+];

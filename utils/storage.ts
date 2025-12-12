@@ -4,6 +4,7 @@ import { Transaction, MonthData, RecurringTransaction, CryptoAsset } from '../ty
 const STORAGE_PREFIX = 'budget_app_';
 const RECURRING_KEY = 'budget_app_recurring_rules';
 const CRYPTO_KEY = 'budget_app_crypto_portfolio';
+const CUSTOM_CATEGORIES_KEY = 'budget_app_custom_categories';
 
 // Helper to get key for a specific month
 const getMonthKey = (monthKey: string) => `${STORAGE_PREFIX}${monthKey}`;
@@ -309,6 +310,36 @@ export const Storage = {
             await Storage.saveCryptoPortfolio(newPortfolio);
         } catch (e) {
             console.error('Failed to delete crypto asset', e);
+        }
+    },
+
+    /**
+     * Custom Categories Logic
+     */
+    getCustomCategories: async (): Promise<any[]> => {
+        try {
+            const jsonValue = await AsyncStorage.getItem(CUSTOM_CATEGORIES_KEY);
+            return jsonValue != null ? JSON.parse(jsonValue) : [];
+        } catch (e) {
+            return [];
+        }
+    },
+
+    saveCustomCategories: async (categories: any[]): Promise<void> => {
+        try {
+            await AsyncStorage.setItem(CUSTOM_CATEGORIES_KEY, JSON.stringify(categories));
+        } catch (e) {
+            console.error('Failed to save custom categories', e);
+        }
+    },
+
+    deleteCustomCategories: async (categoryName: string): Promise<void> => {
+        try {
+            const categories = await Storage.getCustomCategories();
+            const newCategories = categories.filter((c: any) => c.name !== categoryName);
+            await AsyncStorage.setItem(CUSTOM_CATEGORIES_KEY, JSON.stringify(newCategories));
+        } catch (e) {
+            console.error('Failed to delete custom category', e);
         }
     }
 };

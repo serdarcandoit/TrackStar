@@ -6,24 +6,9 @@ import { useBudget } from '../../context/BudgetContext';
 import { Colors } from '../../constants/Colors';
 import { Layout } from '../../constants/Layout';
 import { Card } from '../../components/ui/Card';
-import { Utensils, Bus, ShoppingBag, Film, FileText, Heart, Wallet, Home, ShoppingCart, Coffee, MoreHorizontal, LucideIcon } from 'lucide-react-native';
+import { MoreHorizontal } from 'lucide-react-native';
 
 const { width } = Dimensions.get('window');
-
-// Category Icon Mapping
-const CATEGORY_ICONS: Record<string, LucideIcon> = {
-    "Food": Utensils,
-    "Transport": Bus,
-    "Shopping": ShoppingBag,
-    "Entertainment": Film,
-    "Bills": FileText,
-    "Health": Heart,
-    "Salary": Wallet,
-    "Rent": Home,
-    "Groceries": ShoppingCart,
-    "Dining Out": Coffee,
-    "Other": MoreHorizontal
-};
 
 // Simple helper to calculate pie chart paths
 const getCoordinatesForPercent = (percent: number) => {
@@ -33,7 +18,7 @@ const getCoordinatesForPercent = (percent: number) => {
 };
 
 export default function Stats() {
-    const { transactions } = useBudget();
+    const { transactions, getCategoryColor, getCategoryIcon } = useBudget();
 
     const stats = useMemo(() => {
         const expenses = transactions.filter(t => t.type === 'expense');
@@ -46,12 +31,14 @@ export default function Stats() {
 
         const data = Object.keys(grouped)
             .sort((a, b) => grouped[b] - grouped[a])
-            .map((category, index) => ({
+            .map((category) => ({
                 category,
                 amount: grouped[category],
                 percent: total > 0 ? grouped[category] / total : 0,
-                color: Colors.charts[index % Colors.charts.length],
-                icon: CATEGORY_ICONS[category] || MoreHorizontal
+                // USE FIXED COLOR from Context (supports custom)
+                color: getCategoryColor(category),
+                // USE SHARED ICONS from Context (supports custom)
+                icon: getCategoryIcon(category)
             }));
 
         return { data, total };

@@ -1,7 +1,10 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { Transaction, RecurringTransaction } from '../types';
+import { Category, Transaction, RecurringTransaction } from '../types';
 import { Storage } from '../utils/storage';
 import { Alert } from 'react-native';
+import { DEFAULT_CATEGORIES, CategoryColors, CategoryIcons } from '../constants/CategoryIcons';
+import { Colors } from '../constants/Colors';
+import { Tag } from 'lucide-react-native';
 
 interface BudgetContextType {
     transactions: Transaction[];
@@ -11,9 +14,17 @@ interface BudgetContextType {
     totalSpent: number;
     remainingBalance: number;
     monthlyBudget: number;
+
+    // Category Stuff
+    categories: string[];
+    addCustomCategory: (name: string) => Promise<void>;
+    deleteCustomCategory: (name: string) => Promise<void>;
+    getCategoryColor: (categoryName: string) => string;
+    getCategoryIcon: (categoryName: string) => any;
+
     switchMonth: (month: string) => void;
     addTransaction: (transaction: Transaction, isRecurring?: boolean) => Promise<void>;
-    updateTransaction: (transaction: Transaction) => Promise<void>;
+    updateTransaction: (transaction: Transaction, oldDate?: string, isRecurring?: boolean) => Promise<void>;
     deleteTransaction: (id: string) => Promise<void>;
     deleteRecurringRule: (id: string, currentTransactionDate?: string) => Promise<void>;
     setBudget: (amount: number) => Promise<void>;
@@ -42,6 +53,7 @@ export const BudgetProvider: React.FC<BudgetProviderProps> = ({ children }) => {
     const [recurringRules, setRecurringRules] = useState<RecurringTransaction[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
     const [monthlyBudget, setMonthlyBudget] = useState<number>(5000);
+    const [customCategories, setCustomCategories] = useState<Category[]>([]);
 
     const loadData = async () => {
         try {
@@ -52,10 +64,12 @@ export const BudgetProvider: React.FC<BudgetProviderProps> = ({ children }) => {
             const data = await Storage.getTransactions(currentMonth);
             const budget = await Storage.getBudget(currentMonth);
             const rules = await Storage.getRecurringRules();
+            const customs = await Storage.getCustomCategories();
 
             setTransactions(data);
             setMonthlyBudget(budget);
             setRecurringRules(rules);
+            setCustomCategories(customs);
         } catch (error) {
             Alert.alert('Error', 'Failed to load transactions');
         } finally {
@@ -97,10 +111,34 @@ export const BudgetProvider: React.FC<BudgetProviderProps> = ({ children }) => {
         }
     };
 
-    const updateTransaction = async (transaction: Transaction) => {
+    const updateTransaction = async (transaction: Transaction, oldDate?: string, isRecurring: boolean = false) => {
         const transMonth = transaction.date.slice(0, 7);
+        let oldMonth = transMonth;
+        if (oldDate) {
+            oldMonth = oldDate.slice(0, 7);
+        }
+
+        // If month changed, remove from old month first
+        if (oldMonth !== transMonth) {
+            await Storage.deleteTransaction(oldMonth, transaction.id);
+        }
+
         await Storage.saveTransaction(transMonth, transaction);
-        if (transMonth === currentMonth) {
+
+        if (isRecurring) {
+            await Storage.saveRecurringRule({
+                id: Date.now().toString(),
+                amount: transaction.amount,
+                category: transaction.category,
+                note: transaction.note,
+                type: transaction.type,
+                dayOfMonth: new Date(transaction.date).getDate(),
+                lastGeneratedMonth: transMonth
+            });
+        }
+
+        // Reload if we touched the current month (either as old or new source)
+        if (transMonth === currentMonth || oldMonth === currentMonth) {
             await loadData();
         }
     };
@@ -133,6 +171,61 @@ export const BudgetProvider: React.FC<BudgetProviderProps> = ({ children }) => {
         await loadData();
     };
 
+    // Category Logic
+    const addCustomCategory = async (name: string) => {
+        const trimmed = name.trim();
+        if (!trimmed) return;
+
+        // Prevent duplicates (simple check)
+        const exists = customCategories.some(c => c.name.toLowerCase() === trimmed.toLowerCase())
+            || DEFAULT_CATEGORIES.some(c => c.toLowerCase() === trimmed.toLowerCase());
+
+        if (exists) {
+            Alert.alert('Error', 'Category already exists');
+            return;
+        }
+
+        // Random color assignment from palette
+        const randomColor = Colors.charts[Math.floor(Math.random() * Colors.charts.length)];
+
+        const newCat: Category = {
+            id: Date.now().toString(),
+            name: trimmed,
+            color: randomColor,
+            icon: 'Default',
+            isCustom: true
+        };
+
+        const newCustoms = [...customCategories, newCat];
+        await Storage.saveCustomCategories(newCustoms);
+        setCustomCategories(newCustoms);
+    };
+
+    const deleteCustomCategory = async (name: string) => {
+        await Storage.deleteCustomCategories(name);
+        const newCustoms = customCategories.filter(c => c.name !== name);
+        setCustomCategories(newCustoms);
+    };
+
+    const getCategoryColor = (categoryName: string) => {
+        // 1. Check default constants
+        if (CategoryColors[categoryName]) return CategoryColors[categoryName];
+        // 2. Check custom
+        const custom = customCategories.find(c => c.name === categoryName);
+        if (custom) return custom.color;
+        // 3. Fallback
+        return CategoryColors['Default'] || '#ccc';
+    };
+
+    const getCategoryIcon = (categoryName: string) => {
+        // 1. Check default constants
+        if (CategoryIcons[categoryName]) return CategoryIcons[categoryName];
+        // 2. Custom categories use default Tag icon for now
+        return CategoryIcons['Default'] || Tag;
+    };
+
+    const categories = [...DEFAULT_CATEGORIES, ...customCategories.map(c => c.name)];
+
     const totalSpent = transactions
         .filter(t => t.type === 'expense')
         .reduce((acc, curr) => acc + curr.amount, 0);
@@ -149,6 +242,13 @@ export const BudgetProvider: React.FC<BudgetProviderProps> = ({ children }) => {
                 totalSpent,
                 remainingBalance,
                 monthlyBudget,
+
+                categories,
+                addCustomCategory,
+                deleteCustomCategory,
+                getCategoryColor,
+                getCategoryIcon,
+
                 switchMonth,
                 addTransaction,
                 updateTransaction,
