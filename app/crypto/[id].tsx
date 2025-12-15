@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { format } from 'date-fns';
 import { Colors } from '../../constants/Colors';
 import { CryptoApi } from '../../utils/cryptoApi';
 import { Storage } from '../../utils/storage';
@@ -28,6 +29,9 @@ export default function CryptoDetailScreen() {
     const [loading, setLoading] = useState(true);
     const [chartLoading, setChartLoading] = useState(true);
     const [modalVisible, setModalVisible] = useState(false);
+
+    // Scrubbing state: track timestamp and price under user's finger
+    const [scrubbedData, setScrubbedData] = useState<{ timestamp: number; value: number } | null>(null);
 
     const assetId = Array.isArray(id) ? id[0] : id;
 
@@ -72,9 +76,6 @@ export default function CryptoDetailScreen() {
     };
 
     const handleSaveAsset = async (assetData: any, isEdit: boolean = false) => {
-        // Since we are in detail view, we assume edit mode or straightforward update
-        // We reuse the logic from main screen or simplify
-        // Here we just overwrite for simplicity as key use case is editing THIS asset
         await Storage.saveCryptoAsset(assetData);
         onModalClose();
     };
@@ -114,6 +115,15 @@ export default function CryptoDetailScreen() {
     const isProfit = profit >= 0;
     const themeColor = isProfit ? '#4CAF50' : '#F44336';
 
+    // Interactive Display Logic
+    const displayValue = scrubbedData
+        ? (scrubbedData.value * asset.amount)
+        : value;
+
+    const displayLabel = scrubbedData
+        ? format(new Date(scrubbedData.timestamp), 'MMM d, yyyy HH:mm')
+        : 'Current Value';
+
     return (
         <SafeAreaView style={styles.container}>
             <Stack.Screen options={{ headerShown: false }} />
@@ -129,12 +139,14 @@ export default function CryptoDetailScreen() {
                 </TouchableOpacity>
             </View>
 
-            <ScrollView contentContainerStyle={styles.scrollContent}>
+            <ScrollView contentContainerStyle={styles.scrollContent} scrollEnabled={!scrubbedData}>
                 {/* Price Display */}
                 <View style={styles.priceContainer}>
-                    <Text style={styles.priceLabel}>Current Value</Text>
-                    <Text style={styles.bigPrice}>${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
-                    <View style={styles.changeContainer}>
+                    <Text style={styles.priceLabel}>{displayLabel}</Text>
+                    <Text style={styles.bigPrice}>${displayValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
+
+                    {/* Hide change stats when scrubbing to avoid confusion */}
+                    <View style={[styles.changeContainer, { opacity: scrubbedData ? 0 : 1 }]}>
                         {isProfit ? <TrendingUp size={20} color={themeColor} /> : <TrendingDown size={20} color={themeColor} />}
                         <Text style={[styles.changeText, { color: themeColor }]}>
                             ${Math.abs(profit).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ({profitPercent.toFixed(2)}%)
@@ -148,7 +160,11 @@ export default function CryptoDetailScreen() {
                     {chartLoading ? (
                         <ActivityIndicator color={themeColor} />
                     ) : (
-                        <DetailedChart data={chartData} color={themeColor} />
+                        <DetailedChart
+                            data={chartData}
+                            color={themeColor}
+                            onDataScrub={setScrubbedData}
+                        />
                     )}
                 </View>
 

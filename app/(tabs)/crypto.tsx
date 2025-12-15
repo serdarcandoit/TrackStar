@@ -141,16 +141,15 @@ export default function CryptoScreen() {
                     </View>
                     <View style={styles.priceInfo}>
                         <Text style={styles.assetValue}>${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
-                        <Text style={styles.statValue}>${item.averageBuyPrice.toLocaleString()}</Text>
-                    </View>
-                    <View style={{ alignItems: 'flex-end' }}>
-                        <Text style={styles.statLabel}>P/L</Text>
-                        <View style={styles.plContainer}>
-                            {profit >= 0 ? <TrendingUp size={16} color="#4CAF50" /> : <TrendingDown size={16} color="#F44336" />}
-                            <Text style={[styles.plValue, { color: profit >= 0 ? '#4CAF50' : '#F44336' }]}>
-                                ${Math.abs(profit).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ({profitPercent.toFixed(2)}%)
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', marginTop: 2 }}>
+                            {profit >= 0 ? <TrendingUp size={14} color="#4CAF50" style={{ marginRight: 2 }} /> : <TrendingDown size={14} color="#F44336" style={{ marginRight: 2 }} />}
+                            <Text style={{ color: profit >= 0 ? '#4CAF50' : '#F44336', fontSize: 13, fontWeight: '600' }}>
+                                {profitPercent.toFixed(2)}%
                             </Text>
                         </View>
+                        <Text style={{ color: profit >= 0 ? '#4CAF50' : '#F44336', fontSize: 12, marginTop: 1 }}>
+                            {profit >= 0 ? '+' : '-'}${Math.abs(profit).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </Text>
                     </View>
                 </View>
             </TouchableOpacity>
@@ -174,10 +173,15 @@ export default function CryptoScreen() {
 
                 <View style={styles.summaryRow}>
                     <Text style={styles.summaryLabel}>Total Profit/Loss</Text>
-                    <View style={styles.plContainer}>
-                        {totalPL >= 0 ? <TrendingUp size={20} color="#4CAF50" /> : <TrendingDown size={20} color="#F44336" />}
-                        <Text style={[styles.summaryPL, { color: totalPL >= 0 ? '#4CAF50' : '#F44336' }]}>
-                            ${Math.abs(totalPL).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ({totalPLPercentage.toFixed(2)}%)
+                    <View style={{ alignItems: 'flex-end' }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            {totalPL >= 0 ? <TrendingUp size={20} color="#4CAF50" style={{ marginRight: 4 }} /> : <TrendingDown size={20} color="#F44336" style={{ marginRight: 4 }} />}
+                            <Text style={[styles.summaryPL, { color: totalPL >= 0 ? '#4CAF50' : '#F44336' }]}>
+                                ${Math.abs(totalPL).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </Text>
+                        </View>
+                        <Text style={{ color: totalPL >= 0 ? '#4CAF50' : '#F44336', fontSize: 14, marginTop: 4, fontWeight: '500' }}>
+                            ({totalPLPercentage.toFixed(2)}%)
                         </Text>
                     </View>
                 </View>

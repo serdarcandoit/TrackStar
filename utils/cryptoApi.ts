@@ -14,6 +14,11 @@ export interface CoinPrice {
 const BASE_URL = 'https://api.coingecko.com/api/v3';
 const API_KEY = process.env.EXPO_PUBLIC_COINGECKO_API_KEY;
 
+console.log('--- API DEBUG ---');
+console.log('API Key Loaded:', API_KEY ? 'YES' : 'NO');
+if (API_KEY) console.log('Key Prefix:', API_KEY.substring(0, 5));
+console.log('-----------------');
+
 export const CryptoApi = {
     /**
      * Fetch current prices for a list of coin Ids
@@ -29,6 +34,8 @@ export const CryptoApi = {
             );
 
             if (!response.ok) {
+                const text = await response.text();
+                console.error(`Fetch Prices failed: ${response.status} ${text}`);
                 throw new Error('Network response was not ok');
             }
 
@@ -44,31 +51,49 @@ export const CryptoApi = {
             }));
         } catch (error) {
             console.error('Error fetching crypto prices:', error);
-            // In a real app we might return cached data or an error state
-            // For now, return empty array so UI doesn't crash
             return [];
         }
     },
 
     /**
      * Search for coins (useful for adding new assets)
-     * @param query Search query
+     * Returns object with results or error message.
      */
-    searchCoins: async (query: string): Promise<any[]> => {
+    searchCoins: async (query: string): Promise<{ results: any[], error?: string }> => {
+        // Debug Log
+        console.log('--- SEARCHING COINS ---');
+        console.log('API Key available:', !!API_KEY);
+        if (API_KEY) console.log('Key Prefix:', API_KEY.substring(0, 5));
+
         try {
             const response = await fetch(`${BASE_URL}/search?query=${query}&x_cg_demo_api_key=${API_KEY}`);
+
+            if (!response.ok) {
+                const text = await response.text();
+                console.error(`Search failed: ${response.status} ${text}`);
+
+                if (response.status === 429) {
+                    return { results: [], error: "Too many requests. Please wait a moment." };
+                }
+                return { results: [], error: "Failed to fetch coins." };
+            }
+
             const data = await response.json();
-            return data.coins || [];
+            return { results: data.coins || [] };
         } catch (error) {
             console.error('Error searching coins:', error);
-            return [];
+            return { results: [], error: "Network error occurred." };
         }
     },
 
     fetchMarketChart: async (id: string, days: string): Promise<number[][]> => {
         try {
             const response = await fetch(`${BASE_URL}/coins/${id}/market_chart?vs_currency=usd&days=${days}&x_cg_demo_api_key=${API_KEY}`);
-            if (!response.ok) throw new Error('Failed to fetch chart data');
+            if (!response.ok) {
+                const text = await response.text();
+                console.error(`Fetch Chart failed: ${response.status} ${text}`);
+                throw new Error('Failed to fetch chart data');
+            }
             const data = await response.json();
             return data.prices || [];
         } catch (error) {

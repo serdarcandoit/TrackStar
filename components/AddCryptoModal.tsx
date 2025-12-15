@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Modal, View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { Colors } from '../constants/Colors';
 import { CryptoApi } from '../utils/cryptoApi';
@@ -20,8 +20,10 @@ export default function AddCryptoModal({ visible, onClose, onSave, onDelete, ini
     const [amount, setAmount] = useState('');
     const [buyPrice, setBuyPrice] = useState('');
 
+    const [error, setError] = useState<string | null>(null);
+
     // Effect to pre-fill data if editing
-    React.useEffect(() => {
+    useEffect(() => {
         if (visible) {
             if (initialAsset) {
                 setSelectedCoin(initialAsset);
@@ -35,20 +37,41 @@ export default function AddCryptoModal({ visible, onClose, onSave, onDelete, ini
                 setBuyPrice('');
                 setSearchQuery('');
                 setSearchResults([]);
+                setError(null);
             }
         }
     }, [visible, initialAsset]);
 
-    const handleSearch = async (text: string) => {
+    // Debounce search to prevent hitting API rate limits
+    useEffect(() => {
+        const delayDebounceFn = setTimeout(async () => {
+            if (searchQuery.length > 2 && !selectedCoin) {
+                setLoading(true);
+                const { results, error: searchError } = await CryptoApi.searchCoins(searchQuery);
+
+                if (searchError) {
+                    setError(searchError);
+                    setSearchResults([]);
+                } else {
+                    setSearchResults(results.slice(0, 5));
+                    setError(null);
+                }
+                setLoading(false);
+            } else {
+                setSearchResults([]);
+                setLoading(false);
+            }
+        }, 500);
+
+        return () => clearTimeout(delayDebounceFn);
+    }, [searchQuery, selectedCoin]);
+
+    const handleSearch = (text: string) => {
         setSearchQuery(text);
-        if (text.length > 2) {
-            setLoading(true);
-            const results = await CryptoApi.searchCoins(text);
-            setSearchResults(results.slice(0, 5)); // Limit to 5 results
-            setLoading(false);
-        } else {
-            setSearchResults([]);
+        if (selectedCoin && text !== selectedCoin.name) {
+            setSelectedCoin(null);
         }
+        setError(null);
     };
 
     const handleSelectCoin = (coin: any) => {
@@ -98,6 +121,11 @@ export default function AddCryptoModal({ visible, onClose, onSave, onDelete, ini
                                     placeholderTextColor={Colors.textTertiary}
                                 />
                             </View>
+                            {error && (
+                                <Text style={{ color: Colors.danger, fontSize: 13, marginTop: 4, marginLeft: 4 }}>
+                                    {error}
+                                </Text>
+                            )}
                         </>
                     )}
 
