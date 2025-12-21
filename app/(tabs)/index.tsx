@@ -8,6 +8,8 @@ import { useRouter } from 'expo-router';
 import { Plus, Pencil, ChevronLeft, ChevronRight } from 'lucide-react-native';
 import { format, addMonths, subMonths } from 'date-fns';
 
+import MonthPickerModal from '../../components/MonthPickerModal';
+
 export default function Dashboard() {
     const {
         totalSpent,
@@ -21,6 +23,7 @@ export default function Dashboard() {
     } = useBudget();
 
     const router = useRouter();
+    const [monthPickerVisible, setMonthPickerVisible] = React.useState(false);
 
     const handlePrevMonth = () => {
         const [y, m] = currentMonth.split('-').map(Number);
@@ -34,6 +37,10 @@ export default function Dashboard() {
         const date = new Date(y, m - 1, 1);
         const next = addMonths(date, 1);
         switchMonth(format(next, 'yyyy-MM'));
+    };
+
+    const handleMonthSelect = (date: Date) => {
+        switchMonth(format(date, 'yyyy-MM'));
     };
 
     // Limit to latest 5 transactions
@@ -60,14 +67,26 @@ export default function Dashboard() {
                         <TouchableOpacity onPress={handlePrevMonth} style={styles.monthButton}>
                             <ChevronLeft size={16} color={Colors.text} />
                         </TouchableOpacity>
-                        <Text style={styles.monthText}>
-                            {format(new Date(parseInt(currentMonth.split('-')[0]), parseInt(currentMonth.split('-')[1]) - 1), 'MMMM yyyy')}
-                        </Text>
+
+                        <TouchableOpacity onPress={() => setMonthPickerVisible(true)}>
+                            <Text style={styles.monthText}>
+                                {format(new Date(parseInt(currentMonth.split('-')[0]), parseInt(currentMonth.split('-')[1]) - 1), 'MMMM yyyy')}
+                            </Text>
+                        </TouchableOpacity>
+
                         <TouchableOpacity onPress={handleNextMonth} style={styles.monthButton}>
                             <ChevronRight size={16} color={Colors.text} />
                         </TouchableOpacity>
                     </View>
                 </View>
+
+                {/* Month Picker Modal */}
+                <MonthPickerModal
+                    visible={monthPickerVisible}
+                    onClose={() => setMonthPickerVisible(false)}
+                    onSelect={handleMonthSelect}
+                    currentDate={new Date(parseInt(currentMonth.split('-')[0]), parseInt(currentMonth.split('-')[1]) - 1)}
+                />
 
                 {/* Main Balance Card (Dark) */}
                 <View style={styles.mainCard}>
@@ -169,6 +188,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginBottom: Layout.spacing.xl,
         marginTop: Layout.spacing.sm,
+        gap: 10, // Prevent touching
     },
     greeting: {
         fontSize: 14,
@@ -341,22 +361,21 @@ const styles = StyleSheet.create({
     monthSelector: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#F3F4F6', // Soft Light Gray (Modern "Fill" style)
-        borderRadius: 24, // Fully rounded pill
+        backgroundColor: '#F3F4F6',
+        borderRadius: 24,
         paddingVertical: 6,
-        paddingHorizontal: 10,
-        // No border, no shadow -> Pure flat UI
+        paddingHorizontal: 8,
     },
     monthButton: {
-        padding: 4,
+        padding: 6, // Slightly larger touch area
         borderRadius: 12,
-        backgroundColor: '#E5E7EB', // Slightly darker circle for buttons
+        backgroundColor: '#E5E7EB',
     },
     monthText: {
-        fontSize: 14,
-        fontWeight: '700', // Bolder text
+        fontSize: 13, // Slightly smaller font to fit better
+        fontWeight: '700',
         color: Colors.text,
-        minWidth: 120, // Wider
+        minWidth: 100, // Reduced from 120 to avoid squeezing
         textAlign: 'center',
         fontVariant: ['tabular-nums']
     }

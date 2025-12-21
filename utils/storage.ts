@@ -5,6 +5,7 @@ const STORAGE_PREFIX = 'budget_app_';
 const RECURRING_KEY = 'budget_app_recurring_rules';
 const CRYPTO_KEY = 'budget_app_crypto_portfolio';
 const CUSTOM_CATEGORIES_KEY = 'budget_app_custom_categories';
+const BUDGET_HISTORY_KEY = 'budget_app_budget_history';
 
 // Helper to get key for a specific month
 const getMonthKey = (monthKey: string) => `${STORAGE_PREFIX}${monthKey}`;
@@ -70,26 +71,69 @@ export const Storage = {
         }
     },
 
+
+
     /**
-     * Get budget for a specific month
+     * Get budget for a specific month using Lookback Strategy
+     * Checks:
+     * 1. History for exact month
+     * 2. History for nearest past month (inheritance)
+     * 3. Legacy storage (migration/fallback)
+     * 4. Default (5000)
      */
     getBudget: async (monthKey: string): Promise<number> => {
         try {
-            const key = `budget_limit_${monthKey}`;
-            const jsonValue = await AsyncStorage.getItem(key);
-            return jsonValue != null ? parseFloat(jsonValue) : 5000;
+            // 1. Load History
+            const historyJson = await AsyncStorage.getItem(BUDGET_HISTORY_KEY);
+            const history = historyJson ? JSON.parse(historyJson) : {};
+
+            // 2. Check Exact Match
+            if (history[monthKey]) return history[monthKey];
+
+            // 3. Lookback (Inheritance)
+            // Sort months to find the nearest past entry
+            const sortedMonths = Object.keys(history).sort();
+            const pastMonths = sortedMonths.filter(m => m < monthKey);
+
+            if (pastMonths.length > 0) {
+                const latestPastMonth = pastMonths[pastMonths.length - 1];
+                return history[latestPastMonth];
+            }
+
+            // 4. Legacy Fallback (Backward Compatibility)
+            // If no history exists yet (or no past history), check if we have old data for this specific month
+            const legacyKey = `budget_limit_${monthKey}`;
+            const legacyValue = await AsyncStorage.getItem(legacyKey);
+
+            if (legacyValue != null) {
+                // Optional: We could migrate this to history now, but reading is enough for now.
+                return parseFloat(legacyValue);
+            }
+
+            // 5. Global Default
+            return 5000;
         } catch (e) {
             return 5000;
         }
     },
 
     /**
-     * Save budget for a specific month
+     * Save budget to History
+     * effectively sets a new baseline for this month and future months (until another entry exists)
      */
     saveBudget: async (monthKey: string, amount: number): Promise<void> => {
         try {
-            const key = `budget_limit_${monthKey}`;
-            await AsyncStorage.setItem(key, amount.toString());
+            // Load, Update, Save
+            const historyJson = await AsyncStorage.getItem(BUDGET_HISTORY_KEY);
+            const history = historyJson ? JSON.parse(historyJson) : {};
+
+            history[monthKey] = amount;
+
+            await AsyncStorage.setItem(BUDGET_HISTORY_KEY, JSON.stringify(history));
+
+            // Sync Legacy Key just in case (for safety/downgrade protection)
+            const legacyKey = `budget_limit_${monthKey}`;
+            await AsyncStorage.setItem(legacyKey, amount.toString());
         } catch (e) {
             console.error('Failed to save budget', e);
         }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -10,6 +10,7 @@ import { ArrowLeft, TrendingUp, TrendingDown, Edit2 } from 'lucide-react-native'
 import DetailedChart from '../../components/DetailedChart';
 import AddCryptoModal from '../../components/AddCryptoModal';
 import { CryptoAsset } from '../../types';
+import { LineChart } from 'react-native-wagmi-charts';
 
 const TIMEFRAMES = [
     { label: '1D', value: '1' },
@@ -30,8 +31,11 @@ export default function CryptoDetailScreen() {
     const [chartLoading, setChartLoading] = useState(true);
     const [modalVisible, setModalVisible] = useState(false);
 
-    // Scrubbing state: track timestamp and price under user's finger
-    const [scrubbedData, setScrubbedData] = useState<{ timestamp: number; value: number } | null>(null);
+    // Data Transformation for Wagmi - moved up to avoid conditional hook call
+    const wagmiData = useMemo(() => {
+        if (!chartData || chartData.length === 0) return [];
+        return chartData.map(d => ({ timestamp: d[0], value: d[1] }));
+    }, [chartData]);
 
     const assetId = Array.isArray(id) ? id[0] : id;
 
@@ -115,14 +119,10 @@ export default function CryptoDetailScreen() {
     const isProfit = profit >= 0;
     const themeColor = isProfit ? '#4CAF50' : '#F44336';
 
-    // Interactive Display Logic
-    const displayValue = scrubbedData
-        ? (scrubbedData.value * asset.amount)
-        : value;
 
-    const displayLabel = scrubbedData
-        ? format(new Date(scrubbedData.timestamp), 'MMM d, yyyy HH:mm')
-        : 'Current Value';
+    const formattedCurrentTotal = value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const formattedCurrentUnit = currentPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const symbol = asset.symbol.toUpperCase();
 
     return (
         <SafeAreaView style={styles.container}>
@@ -139,34 +139,67 @@ export default function CryptoDetailScreen() {
                 </TouchableOpacity>
             </View>
 
-            <ScrollView contentContainerStyle={styles.scrollContent} scrollEnabled={!scrubbedData}>
-                {/* Price Display */}
-                <View style={styles.priceContainer}>
-                    <Text style={styles.priceLabel}>{displayLabel}</Text>
-                    <Text style={styles.bigPrice}>${displayValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
-
-                    {/* Hide change stats when scrubbing to avoid confusion */}
-                    <View style={[styles.changeContainer, { opacity: scrubbedData ? 0 : 1 }]}>
-                        {isProfit ? <TrendingUp size={20} color={themeColor} /> : <TrendingDown size={20} color={themeColor} />}
-                        <Text style={[styles.changeText, { color: themeColor }]}>
-                            ${Math.abs(profit).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ({profitPercent.toFixed(2)}%)
-                        </Text>
-                        <Text style={styles.timeframeText}>All Time</Text>
-                    </View>
-                </View>
-
-                {/* Chart */}
-                <View style={styles.chartContainer}>
-                    {chartLoading ? (
-                        <ActivityIndicator color={themeColor} />
-                    ) : (
-                        <DetailedChart
-                            data={chartData}
-                            color={themeColor}
-                            onDataScrub={setScrubbedData}
+            <ScrollView contentContainerStyle={styles.scrollContent} scrollEnabled={true}>
+                <LineChart.Provider data={wagmiData}>
+                    {/* Price Display */}
+                    <View style={styles.priceContainer}>
+                        <LineChart.DatetimeText
+                            style={styles.priceLabel}
+                            format={({ value }) => {
+                                'worklet';
+                                if (!value || value === '0' || value === 0 || value === -1) {
+                                    return 'Current Value';
+                                }
+                                const date = new Date(Number(value)); // Ensure strictly number
+                                // Simple format: "MMM D, YYYY HH:mm" manually or simplified
+                                // wagmi-charts doesn't bundle date-fns in worklet easily
+                                const options: any = { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+                                return date.toLocaleDateString('en-US', options);
+                            }}
                         />
-                    )}
-                </View>
+                        <LineChart.PriceText
+                            style={styles.bigPrice}
+                            format={({ value }) => {
+                                'worklet';
+                                if (!value || value === '0' || value === 0) {
+                                    return `$${formattedCurrentTotal}`;
+                                }
+                                const totalValue = parseFloat(value) * asset.amount; // value is explicitly string in library types but works as number often, strictly parsing is safer
+                                return `$${totalValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                            }}
+                        />
+                        <LineChart.PriceText
+                            style={styles.coinPriceLabel}
+                            format={({ value }) => {
+                                'worklet';
+                                if (!value || value === '0' || value === 0) {
+                                    return `1 ${symbol} = $${formattedCurrentUnit}`;
+                                }
+                                return `1 ${symbol} = $${parseFloat(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                            }}
+                        />
+
+                        {/* Change Stats - Static (or we could use PriceText delta if desired, but keeping static is safer/simpler for now) */}
+                        <View style={styles.changeContainer}>
+                            {isProfit ? <TrendingUp size={20} color={themeColor} /> : <TrendingDown size={20} color={themeColor} />}
+                            <Text style={[styles.changeText, { color: themeColor }]}>
+                                ${Math.abs(profit).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ({profitPercent.toFixed(2)}%)
+                            </Text>
+                            <Text style={styles.timeframeText}>All Time</Text>
+                        </View>
+                    </View>
+
+                    {/* Chart */}
+                    <View style={styles.chartContainer}>
+                        {chartLoading ? (
+                            <ActivityIndicator color={themeColor} />
+                        ) : (
+                            <DetailedChart color={themeColor} />
+                        )}
+                    </View>
+                </LineChart.Provider>
+
+                {/* Timeframes */}
 
                 {/* Timeframes */}
                 <View style={styles.timeframeContainer}>
@@ -259,6 +292,12 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: Colors.textSecondary,
         marginBottom: 5,
+    },
+    coinPriceLabel: {
+        fontSize: 14,
+        color: Colors.textSecondary,
+        marginTop: 4,
+        fontWeight: '500',
     },
     bigPrice: {
         fontSize: 36,

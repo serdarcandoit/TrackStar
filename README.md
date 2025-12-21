@@ -9,6 +9,17 @@ A modern, highly polished Budget Tracking application built with **React Native 
 *   **Monthly Budgeting**: Set and edit your monthly spending limits dynamically.
 *   **Live Progress**: Visual progress bar indicating budget consumption.
 
+### ₿ Crypto Portfolio
+*   **Asset Tracking**: Track your cryptocurrency holdings with real-time value updates.
+*   **Interactive Charts**: 
+    *   **Scrubbing**: Drag across charts to see precise price and date history.
+    *   **Live Updates**: Header displays the specific price and value as you interact.
+    *   **Unit Price Display**: Instantly view the "1 Coin = $Price" conversion while scrubbing.
+
+### 💰 Smarter Budgeting
+*   **Global Layout**: Improved header design with "Month Picker" modal for quick navigation.
+*   **Budget Propagation**: Changing a budget limits now effectively sets a new baseline for all future months (Lookback Strategy).
+
 ### 💸 Transaction Management
 *   **Daily Breakdown**: Transactions are automatically grouped by date for easy viewing.
 *   **Recurring Expenses**: 
@@ -57,9 +68,12 @@ A modern, highly polished Budget Tracking application built with **React Native 
     cd budget-tracker
     ```
 
+
 2.  **Install Dependencies**:
+
+    > **Note**: You may need to use `--legacy-peer-deps` to resolve dependency conflicts.
     ```bash
-    npm install
+    npm install --legacy-peer-deps
     ```
 
 3.  **Run the App**:

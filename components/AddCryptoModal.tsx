@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { Colors } from '../constants/Colors';
+import { Layout } from '../constants/Layout';
 import { CryptoApi } from '../utils/cryptoApi';
 import { X, Search, Trash2 } from 'lucide-react-native';
 
@@ -19,6 +20,7 @@ export default function AddCryptoModal({ visible, onClose, onSave, onDelete, ini
     const [selectedCoin, setSelectedCoin] = useState<any>(null);
     const [amount, setAmount] = useState('');
     const [buyPrice, setBuyPrice] = useState('');
+    const [fetchedPrice, setFetchedPrice] = useState<string | null>(null);
 
     const [error, setError] = useState<string | null>(null);
 
@@ -35,6 +37,7 @@ export default function AddCryptoModal({ visible, onClose, onSave, onDelete, ini
                 setSelectedCoin(null);
                 setAmount('');
                 setBuyPrice('');
+                setFetchedPrice(null);
                 setSearchQuery('');
                 setSearchResults([]);
                 setError(null);
@@ -74,21 +77,32 @@ export default function AddCryptoModal({ visible, onClose, onSave, onDelete, ini
         setError(null);
     };
 
-    const handleSelectCoin = (coin: any) => {
+    const handleSelectCoin = async (coin: any) => {
         setSelectedCoin(coin);
         setSearchQuery(coin.name);
         setSearchResults([]);
+
+        // Auto-fill price
+        try {
+            const prices = await CryptoApi.fetchPrices([coin.id]);
+            if (prices && prices.length > 0) {
+                setFetchedPrice(prices[0].current_price.toString());
+            }
+        } catch (e) {
+            console.error("Failed to fetch price for autofill", e);
+        }
     };
 
     const handleSave = () => {
-        if (!selectedCoin || !amount || !buyPrice) return;
+        const finalPrice = buyPrice || fetchedPrice;
+        if (!selectedCoin || !amount || !finalPrice) return;
 
         onSave({
             id: selectedCoin.id,
             symbol: selectedCoin.symbol,
             name: selectedCoin.name,
             amount: parseFloat(amount),
-            averageBuyPrice: parseFloat(buyPrice),
+            averageBuyPrice: parseFloat(finalPrice),
         }, !!initialAsset);
 
         onClose();
@@ -167,7 +181,7 @@ export default function AddCryptoModal({ visible, onClose, onSave, onDelete, ini
                             <Text style={styles.label}>Average Buy Price ($)</Text>
                             <TextInput
                                 style={styles.activeInput}
-                                placeholder="0.00"
+                                placeholder={fetchedPrice ? fetchedPrice : "0.00"}
                                 keyboardType="numeric"
                                 value={buyPrice}
                                 onChangeText={setBuyPrice}

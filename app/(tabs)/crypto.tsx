@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, Image, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/Colors';
+import { Layout } from '../../constants/Layout';
 import { Plus, TrendingUp, TrendingDown, Trash2 } from 'lucide-react-native';
 import { Storage } from '../../utils/storage';
 import { CryptoAsset } from '../../types';
@@ -160,9 +161,6 @@ export default function CryptoScreen() {
         <SafeAreaView style={styles.container} edges={['top']}>
             <View style={styles.header}>
                 <Text style={styles.title}>Crypto Portfolio</Text>
-                <TouchableOpacity style={styles.addButton} onPress={openAddModal}>
-                    <Plus color="white" size={24} />
-                </TouchableOpacity>
             </View>
 
             <View style={styles.summaryCard}>
@@ -207,6 +205,16 @@ export default function CryptoScreen() {
                 onDelete={selectedAsset ? () => handleDeleteAsset(selectedAsset.id) : undefined}
                 initialAsset={selectedAsset}
             />
+
+            {/* Floating Action Button */}
+            <View style={styles.fabContainer}>
+                <TouchableOpacity
+                    style={styles.fab}
+                    onPress={openAddModal}
+                >
+                    <Plus size={32} color="#FFF" />
+                </TouchableOpacity>
+            </View>
         </SafeAreaView>
     );
 }
@@ -359,5 +367,24 @@ const styles = StyleSheet.create({
     emptyText: {
         color: Colors.textSecondary,
         fontSize: 16,
+    },
+    fabContainer: {
+        position: 'absolute',
+        bottom: 100, // Raised to clear the footer
+        left: 0,
+        right: 0,
+        alignItems: 'center',
+        zIndex: 100,
+    },
+    fab: {
+        width: 64,
+        height: 64,
+        borderRadius: 32,
+        backgroundColor: Colors.iconBgPurple,
+        justifyContent: 'center',
+        alignItems: 'center',
+        ...Layout.shadows.medium,
+        shadowColor: Colors.iconBgPurple,
+        shadowOpacity: 0.4,
     }
 });
