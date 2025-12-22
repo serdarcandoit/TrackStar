@@ -3,7 +3,8 @@ import { View, Text, StyleSheet, ScrollView, Platform, KeyboardAvoidingView, Ale
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { format } from 'date-fns';
-import { Plus, X } from 'lucide-react-native';
+import { Plus, X, Calendar } from 'lucide-react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 import { ScreenWrapper } from '../components/ui/ScreenWrapper';
 import { Input } from '../components/ui/Input';
@@ -32,6 +33,14 @@ export default function AddModal() {
         : format(new Date(), 'yyyy-MM-dd');
 
     const [dateStr, setDateStr] = useState(initialDateStr);
+    const [showDatePicker, setShowDatePicker] = useState(false);
+
+    const handleDateChange = (event: any, selectedDate?: Date) => {
+        setShowDatePicker(false);
+        if (selectedDate) {
+            setDateStr(format(selectedDate, 'yyyy-MM-dd'));
+        }
+    };
 
     // Check if editing an existing recurring transaction AND the rule is still active
     const initialIsRecurring = useMemo(() => {
@@ -214,12 +223,26 @@ export default function AddModal() {
 
                     {/* Hidden input for visual spacing consistency, moved logic to chips above */}
 
-                    <Input
-                        label="Date (YYYY-MM-DD)"
-                        placeholder="YYYY-MM-DD"
-                        value={dateStr}
-                        onChangeText={setDateStr}
-                    />
+                    <TouchableOpacity
+                        onPress={() => setShowDatePicker(true)}
+                        style={styles.dateInputContainer}
+                    >
+                        <Text style={styles.label}>Date</Text>
+                        <View style={styles.dateDisplay}>
+                            <Calendar size={20} color={Colors.textSecondary} style={{ marginRight: 8 }} />
+                            <Text style={styles.dateText}>{dateStr}</Text>
+                        </View>
+                    </TouchableOpacity>
+
+                    {showDatePicker && (
+                        <DateTimePicker
+                            value={new Date(dateStr)}
+                            mode="date"
+                            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                            onChange={handleDateChange}
+                            maximumDate={new Date()} // Optional: prevent future dates if desired
+                        />
+                    )}
 
                     <Input
                         label="Note (Optional)"
@@ -298,9 +321,29 @@ const styles = StyleSheet.create({
         marginLeft: 4
     },
     amountInput: {
-        fontSize: 24,
+        fontSize: 32,
         fontWeight: '700',
         color: Colors.primary,
+        height: 80,
+        textAlignVertical: 'center',
+        paddingVertical: 0,
+    },
+    dateInputContainer: {
+        marginBottom: Layout.spacing.md,
+    },
+    dateDisplay: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: Colors.background,
+        borderRadius: Layout.borderRadius.md,
+        paddingHorizontal: Layout.spacing.md,
+        paddingVertical: 12,
+        borderWidth: 1,
+        borderColor: 'transparent',
+    },
+    dateText: {
+        fontSize: 16,
+        color: Colors.text,
     },
     switchContainer: {
         flexDirection: 'row',

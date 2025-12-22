@@ -285,6 +285,7 @@ export const Storage = {
                     if (!jsonValue) continue;
 
                     const transactions: Transaction[] = JSON.parse(jsonValue);
+                    if (!Array.isArray(transactions)) continue;
                     const originalLength = transactions.length;
 
                     // Filter out transactions that match the rule AND are strictly after the fromDate
@@ -384,6 +385,36 @@ export const Storage = {
             await AsyncStorage.setItem(CUSTOM_CATEGORIES_KEY, JSON.stringify(newCategories));
         } catch (e) {
             console.error('Failed to delete custom category', e);
+        }
+    },
+
+    /**
+     * Get all transactions for a specific YEAR
+     * Aggregates from all monthly keys starting with "budget_app_YYYY-"
+     */
+    getTransactionsForYear: async (year: string): Promise<Transaction[]> => {
+        try {
+            const allKeys = await AsyncStorage.getAllKeys();
+            // Prefix: budget_app_YYYY-
+            const yearPrefix = `${STORAGE_PREFIX}${year}-`;
+
+            const matchingKeys = allKeys.filter(key => key.startsWith(yearPrefix));
+            if (matchingKeys.length === 0) return [];
+
+            const results = await AsyncStorage.multiGet(matchingKeys);
+            let allTransactions: Transaction[] = [];
+
+            results.forEach(([key, value]) => {
+                if (value) {
+                    const monthTrans: Transaction[] = JSON.parse(value);
+                    allTransactions = [...allTransactions, ...monthTrans];
+                }
+            });
+
+            return allTransactions;
+        } catch (e) {
+            console.error('Failed to get transactions for year', e);
+            return [];
         }
     }
 };

@@ -31,6 +31,9 @@ interface BudgetContextType {
     clearAllData: () => Promise<void>;
     clearTransactions: () => Promise<void>;
     refresh: () => void;
+
+    // New: Fetch year data
+    getTransactionsForYear: (year: string) => Promise<Transaction[]>;
 }
 
 const BudgetContext = createContext<BudgetContextType | undefined>(undefined);
@@ -171,6 +174,10 @@ export const BudgetProvider: React.FC<BudgetProviderProps> = ({ children }) => {
         await loadData();
     };
 
+    const getTransactionsForYear = async (year: string) => {
+        return await Storage.getTransactionsForYear(year);
+    };
+
     // Category Logic
     const addCustomCategory = async (name: string) => {
         const trimmed = name.trim();
@@ -257,7 +264,8 @@ export const BudgetProvider: React.FC<BudgetProviderProps> = ({ children }) => {
                 setBudget,
                 clearAllData,
                 clearTransactions,
-                refresh: loadData
+                refresh: loadData,
+                getTransactionsForYear
             }}
         >
             {children}
